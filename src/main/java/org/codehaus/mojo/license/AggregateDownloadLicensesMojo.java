@@ -29,6 +29,7 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.mojo.license.api.ResolvedProjectDependencies;
 import org.codehaus.mojo.license.download.LicensedArtifact;
+import org.codehaus.mojo.license.utils.MojoHelper;
 
 import java.util.List;
 import java.util.Map;
@@ -104,6 +105,16 @@ public class AggregateDownloadLicensesMojo
     @Parameter( property = "license.extendedInfo", defaultValue = "false" )
     private boolean extendedInfo;
 
+    /**
+     * Exclude modules from processing.
+     * <p/>
+     * Comma separated list of relative module paths. Exclusions are not recursive.
+     *
+     * @since 2.1
+     */
+    @Parameter( property = "license.excludedModules" )
+    private String excludedModules;
+
     // ----------------------------------------------------------------------
     // AbstractDownloadLicensesMojo Implementation
     // ----------------------------------------------------------------------
@@ -123,8 +134,16 @@ public class AggregateDownloadLicensesMojo
     {
         final Map<String, LicensedArtifact> result = new TreeMap<>();
 
+        List<String> excludedModules = MojoHelper.getParams( this.excludedModules );
+
         for ( MavenProject p : reactorProjects )
         {
+            if ( excludedModules.contains( getProject().getBasedir().toPath().relativize(
+                p.getBasedir().toPath() ).toString() ) )
+            {
+                getLog().info( "Skipping excluded module " + p );
+                continue;
+            }
             licensedArtifactResolver.loadProjectDependencies( new ResolvedProjectDependencies( p.getArtifacts(),
                                                                                        p.getDependencyArtifacts() ),
                                                       this, remoteRepositories, result, extendedInfo );
