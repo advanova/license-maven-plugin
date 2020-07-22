@@ -320,7 +320,10 @@ public class LicenseSummaryWriter
      */
     private static String prepareCdata( String property )
     {
-        return property.replace( "\r\n", "\n" ).replace( "\r", "\n" );
+        return property.replace( "\r\n", "\n" )
+                       .replace( "\r", "\n" )
+                       // (L)GPL uses "FF" (Form Feed) in it's license
+                       .replace( "\f", "\n" );
     }
 
     private static void addPropertyIfSet( Document doc, Node parentNode, String elementName,
