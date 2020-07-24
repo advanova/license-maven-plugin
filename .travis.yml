@@ -5,7 +5,6 @@ dist: trusty
 install: true
 
 jdk:
-  - openjdk7
   - openjdk8
   - openjdk11
 
