@@ -28,6 +28,7 @@ import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Proxy;
@@ -49,6 +50,10 @@ import org.codehaus.mojo.license.extended.spreadsheet.ExcelFileWriter;
 import org.codehaus.mojo.license.spdx.SpdxLicenseList;
 import org.codehaus.mojo.license.spdx.SpdxLicenseList.Attachments.ContentSanitizer;
 import org.codehaus.mojo.license.utils.FileUtil;
+import org.codehaus.plexus.resource.ResourceManager;
+import org.codehaus.plexus.resource.loader.FileResourceCreationException;
+import org.codehaus.plexus.resource.loader.FileResourceLoader;
+import org.codehaus.plexus.resource.loader.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +64,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -183,7 +189,7 @@ public abstract class AbstractDownloadLicensesMojo
      * @since 1.0
      */
     @Parameter( property = "licensesConfigFile", defaultValue = "${project.basedir}/src/license/licenses.xml" )
-    protected File licensesConfigFile;
+    protected String licensesConfigFile;
     // CHECKSTYLE_ON: LineLength
 
     /**
@@ -702,7 +708,10 @@ public abstract class AbstractDownloadLicensesMojo
     // ----------------------------------------------------------------------
     // Plexus Components
     // ----------------------------------------------------------------------
+    @Component
+    private ResourceManager locator;
 
+    private boolean locatorInitialized;
     // ----------------------------------------------------------------------
     // Private Fields
     // ----------------------------------------------------------------------
@@ -730,6 +739,29 @@ public abstract class AbstractDownloadLicensesMojo
 
     protected abstract Map<String, LicensedArtifact> getDependencies();
 
+    protected URL getResource( String pResource )
+    {
+        try
+        {
+            return getLocator().getResource( pResource ).getURL();
+        }
+        catch ( ResourceNotFoundException | IOException exception )
+        {
+            LOG.debug( "Could not find resource " + pResource );
+            return null;
+        }
+    }
+
+    protected ResourceManager getLocator()
+    {
+        if ( !locatorInitialized )
+        {
+            locator.addSearchPath( FileResourceLoader.ID, getProject().getBasedir().getAbsolutePath() );
+            locatorInitialized = true;
+        }
+        return locator;
+    }
+
     // ----------------------------------------------------------------------
     // Mojo Implementation
     // ----------------------------------------------------------------------
@@ -755,7 +787,7 @@ public abstract class AbstractDownloadLicensesMojo
 
         initDirectories();
 
-        final LicenseMatchers matchers = LicenseMatchers.load( licensesConfigFile );
+        final LicenseMatchers matchers = LicenseMatchers.load( getResource( licensesConfigFile ) );
 
         if ( !forceDownload )
         {
@@ -1134,7 +1166,17 @@ public abstract class AbstractDownloadLicensesMojo
     /** {@inheritDoc} */
     protected Path[] getAutodetectEolFiles()
     {
-        return new Path[] { licensesConfigFile.toPath(), project.getBasedir().toPath().resolve( "pom.xml" ) };
+        File resource;
+        try
+        {
+            resource = getLocator().getResourceAsFile( licensesConfigFile ).getAbsoluteFile();
+        }
+        catch ( ResourceNotFoundException | FileResourceCreationException e )
+        {
+            // Fallback on previous handling
+            resource = new File( licensesConfigFile );
+        }
+        return new Path[] { resource.toPath(), project.getBasedir().toPath().resolve( "pom.xml" ) };
     }
 
     private Proxy findActiveProxy()
