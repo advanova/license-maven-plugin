@@ -115,6 +115,18 @@ public class AggregateDownloadLicensesMojo
     @Parameter( property = "license.excludedModules" )
     private String excludedModules;
 
+    /**
+     * Includes modules from processing.
+     * <p/>
+     * Comma separated list of relative module paths. Inclusions are not recursive.
+     *
+     * Includes all modules if left empty
+     *
+     * @since 2.1
+     */
+    @Parameter( property = "license.includedModules" )
+    private String includedModules;
+
     // ----------------------------------------------------------------------
     // AbstractDownloadLicensesMojo Implementation
     // ----------------------------------------------------------------------
@@ -134,19 +146,22 @@ public class AggregateDownloadLicensesMojo
     {
         final Map<String, LicensedArtifact> result = new TreeMap<>();
 
+        List<String> includedModules = MojoHelper.getParams( this.includedModules );
         List<String> excludedModules = MojoHelper.getParams( this.excludedModules );
 
         for ( MavenProject p : reactorProjects )
         {
-            if ( excludedModules.contains( getProject().getBasedir().toPath().relativize(
-                p.getBasedir().toPath() ).toString() ) )
+            String modulePath = getProject().getBasedir().toPath().relativize( p.getBasedir().toPath() ).toString();
+            if ( ( includedModules.isEmpty() || includedModules.contains ( modulePath ) )
+                && !excludedModules.contains ( modulePath ) )
+            {
+                licensedArtifactResolver.loadProjectDependencies ( new ResolvedProjectDependencies ( p.getArtifacts(),
+                        p.getDependencyArtifacts() ), this, remoteRepositories, result, extendedInfo );
+            }
+            else
             {
                 getLog().info( "Skipping excluded module " + p );
-                continue;
             }
-            licensedArtifactResolver.loadProjectDependencies( new ResolvedProjectDependencies( p.getArtifacts(),
-                                                                                       p.getDependencyArtifacts() ),
-                                                      this, remoteRepositories, result, extendedInfo );
         }
         return result;
     }
