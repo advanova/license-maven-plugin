@@ -52,17 +52,17 @@ public class LicenseMatchers
     }
 
     /**
-     * @param licenseMatchersFile
-     * @return new {@link LicenseMatchers} configured from the given {@code licenseMatchersFile}
+     * @param licenseMatchersFiles
+     * @return new {@link LicenseMatchers} configured from the given {@code licenseMatchersFiles}
      * @throws MojoExecutionException
      */
-    public static LicenseMatchers load( URL licenseMatchersFile )
+    public static LicenseMatchers load( List<URL> licenseMatchersFiles )
         throws MojoExecutionException
     {
         final List<DependencyMatcher> matchers = new ArrayList<>();
-        try
+        for ( URL licenseMatchersFile : licenseMatchersFiles )
         {
-            if ( licenseMatchersFile != null )
+            try
             {
                 final List<ProjectLicenseInfo> replacements =
                     LicenseSummaryReader.parseLicenseSummary( licenseMatchersFile.openStream() );
@@ -72,10 +72,10 @@ public class LicenseMatchers
                     matchers.add( DependencyMatcher.of( dependency ) );
                 }
             }
-        }
-        catch ( Exception e )
-        {
-            throw new MojoExecutionException( "Could not parse licensesReplacementsFile " + licenseMatchersFile, e );
+            catch ( Exception e )
+            {
+                throw new MojoExecutionException( "Could not parse file " + licenseMatchersFile, e );
+            }
         }
         return new LicenseMatchers( matchers );
     }
